@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
@@ -23,7 +24,8 @@ class ImageService {
       final x = await _picker.pickImage(
           source: source, maxWidth: 2000, maxHeight: 2000);
       return x == null ? null : File(x.path);
-    } on PlatformException {
+    } on PlatformException catch (e) {
+      debugPrint('Image pick error: $e');
       throw const AppException(
           'Could not access your camera or photos. Check app permissions.');
     }
@@ -31,15 +33,23 @@ class ImageService {
 
   /// Resizes to a reasonable size and re-encodes as JPEG (quality 80).
   Future<Uint8List> compress(File file) async {
-    final bytes = await FlutterImageCompress.compressWithFile(
-      file.absolute.path,
-      minWidth: 1024,
-      minHeight: 1024,
-      quality: 80,
-      format: CompressFormat.jpeg,
-    );
+    Uint8List? bytes;
+    try {
+      bytes = await FlutterImageCompress.compressWithFile(
+        file.absolute.path,
+        minWidth: 1024,
+        minHeight: 1024,
+        quality: 80,
+        format: CompressFormat.jpeg,
+      );
+    } catch (e) {
+      // If compression is unsupported or fails, fall back to the original.
+      debugPrint('Compress error, using original file: $e');
+      bytes = await file.readAsBytes();
+    }
     if (bytes == null) {
-      throw const AppException("We couldn't process that image. Try another one.");
+      throw const AppException(
+          "We couldn't process that image. Try another one.");
     }
     if (bytes.length > _maxUploadBytes) {
       throw const AppException('That image is too large. Choose a smaller one.');
@@ -88,21 +98,32 @@ class ImageService {
       final streamed =
           await request.send().timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamed);
+      debugPrint('Cloudinary ${response.statusCode}: ${response.body}');
+
       if (response.statusCode != 200) {
-        throw const AppException('Image upload failed. Please try again.');
+        String reason = 'Image upload failed. Please try again.';
+        try {
+          final msg = ((jsonDecode(response.body) as Map)['error']
+              as Map?)?['message'] as String?;
+          if (msg != null && kDebugMode) reason = 'Upload failed: $msg';
+        } catch (_) {}
+        throw AppException(reason);
       }
+
       final url = (jsonDecode(response.body) as Map)['secure_url'] as String?;
       if (url == null) {
         throw const AppException('Image upload failed. Please try again.');
       }
       onProgress?.call(1);
       return url;
-    } on SocketException {
+    } on SocketException catch (e) {
+      debugPrint('Upload SocketException: $e');
       throw const AppException(
           'No internet connection. Check your network and try again.');
     } on TimeoutException {
       throw const AppException('The upload timed out. Please try again.');
-    } on http.ClientException {
+    } on http.ClientException catch (e) {
+      debugPrint('Upload ClientException: $e');
       throw const AppException('Image upload failed. Please try again.');
     }
   }

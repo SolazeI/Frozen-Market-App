@@ -4,9 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'app_exception.dart';
 
+import 'package:flutter/foundation.dart';
+
 /// Converts any thrown object into a friendly, user-facing message.
 /// Never show raw Firebase error codes in the UI.
 String friendlyError(Object error) {
+  debugPrint('friendlyError -> ${error.runtimeType}: $error');
   if (error is AppException) return error.message;
 
   if (error is FirebaseAuthException) {

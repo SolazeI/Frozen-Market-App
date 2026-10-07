@@ -178,7 +178,7 @@ class _QuickActions extends StatelessWidget {
 
     final actions = <(IconData, String, VoidCallback)>[
       (Icons.add_box_outlined, 'Add product',
-          () => context.go(Routes.sellerProducts)),
+    () => context.push(Routes.productAdd)),
       (Icons.inventory_2_outlined, 'Products',
           () => context.go(Routes.sellerProducts)),
       (Icons.receipt_long_outlined, 'Orders',
