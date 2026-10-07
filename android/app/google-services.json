@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "307593514246",
+    "project_id": "frostmart-6adc9",
+    "storage_bucket": "frostmart-6adc9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307593514246:android:da7e291446b2a7dad92287",
+        "android_client_info": {
+          "package_name": "com.example.frost_mart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5PC12YFG_cZwPq3DuSbbRacGbFpJsEX8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
