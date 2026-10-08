@@ -1,22 +1,44 @@
 rules_version = '2';
-// INTERIM rules (Phase 9): users, shops, products, deliveryAreas.
-// Delivery areas, orders and reviews are added in later phases; the full set
-// is finalized in Phase 15. Everything not listed is denied.
+// FrostMart Firestore rules (Phase 15, final).
+// Collections: users (+ cart), shops, products, deliveryAreas, orders,
+// reviews (product reviews) and sellerReviews (one seller rating per order).
+// Product rating comes from `reviews`; shop rating comes from `sellerReviews`.
+// Everything not listed is denied.
+//
+// Principles
+//  * Every write is tied to request.auth.uid and the caller's role.
+//  * Updates list the exact fields that may change (affectedKeys().hasOnly).
+//  * Rating/reviewCount changes are only possible together with a NEW review
+//    document written in the same transaction (see lastReviewId).
+//  * Order status moves only along the allowed transitions.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------------------------------------------------------------- helpers
     function signedIn() { return request.auth != null; }
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
-    function isSeller() {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller';
+    function roleOf(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
     }
+    function isSeller() { return signedIn() && roleOf(request.auth.uid) == 'seller'; }
+    function isCustomer() { return signedIn() && roleOf(request.auth.uid) == 'customer'; }
 
+    // ------------------------------------------------------------------ users
+    // Private: a user can only read and edit their own profile. role, uid,
+    // email and createdAt are immutable after creation.
     match /users/{uid} {
       allow read: if isOwner(uid);
       allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(
+             ['uid', 'role', 'fullName', 'email', 'phone', 'address',
+              'region', 'regionCode', 'province', 'provinceCode',
+              'city', 'cityCode', 'barangay', 'barangayCode',
+              'profileImage', 'createdAt'])
         && request.resource.data.uid == uid
-        && request.resource.data.role in ['customer', 'seller'];
+        && request.resource.data.role in ['customer', 'seller']
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() >= 2
+        && request.resource.data.fullName.size() <= 80;
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['fullName', 'phone', 'address', 'region', 'regionCode',
@@ -29,27 +51,81 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // users/{uid}/cart/{productId}: the customer's own cart only.
+    match /users/{uid}/cart/{productId} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isCustomer()
+        && request.resource.data.keys().hasOnly(
+             ['productId', 'shopId', 'quantity', 'selected', 'addedAt'])
+        && request.resource.data.productId == productId
+        && request.resource.data.shopId is string
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 1
+        && request.resource.data.quantity <= 100000
+        && request.resource.data.selected is bool;
+      allow update: if isOwner(uid) && isCustomer()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['quantity', 'selected'])
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 1
+        && request.resource.data.quantity <= 100000
+        && request.resource.data.selected is bool;
+      allow delete: if isOwner(uid);
+    }
+
+    // ------------------------------------------------------------------ shops
     match /shops/{shopId} {
+
+      // Seller-rating path named by the update (lastReviewId == orderId).
+      function shopReviewPath(d) {
+        return /databases/$(database)/documents/sellerReviews/$(d.lastReviewId);
+      }
+
+      // A customer may bump the shop rating ONLY alongside one brand-new seller
+      // rating for this shop, written by them, and the averages must match
+      // that star value.
+      function shopRatingUpdateOk() {
+        let d = request.resource.data;
+        let o = resource.data;
+        return isCustomer()
+          && d.diff(o).affectedKeys().hasOnly(['rating', 'totalReviews', 'lastReviewId'])
+          && d.lastReviewId is string
+          && !exists(shopReviewPath(d))
+          && existsAfter(shopReviewPath(d))
+          && getAfter(shopReviewPath(d)).data.shopId == shopId
+          && getAfter(shopReviewPath(d)).data.customerId == request.auth.uid
+          && d.totalReviews == o.totalReviews + 1
+          && math.abs(d.rating * d.totalReviews - o.rating * o.totalReviews
+                      - getAfter(shopReviewPath(d)).data.rating) < 0.01;
+      }
+
+      function shopOwnerUpdateOk() {
+        return isOwner(shopId)
+          && resource.data.sellerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['shopName', 'description', 'logoUrl', 'address',
+                         'region', 'regionCode', 'province', 'provinceCode',
+                         'city', 'cityCode', 'barangay', 'barangayCode',
+                         'updatedAt'])
+          && request.resource.data.shopName is string
+          && request.resource.data.shopName.size() >= 3
+          && request.resource.data.shopName.size() <= 60;
+      }
+
       allow read: if signedIn();
+      // shopId == sellerId == uid. The user doc is created in the same batch,
+      // hence getAfter().
       allow create: if isOwner(shopId)
         && request.resource.data.sellerId == request.auth.uid
         && request.resource.data.rating == 0
         && request.resource.data.totalReviews == 0
         && request.resource.data.totalSales == 0
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller';
-      allow update: if isOwner(shopId)
-        && resource.data.sellerId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['shopName', 'description', 'logoUrl', 'address',
-                       'region', 'regionCode', 'province', 'provinceCode',
-                       'city', 'cityCode', 'barangay', 'barangayCode',
-                       'updatedAt'])
-        && request.resource.data.shopName is string
-        && request.resource.data.shopName.size() >= 3
-        && request.resource.data.shopName.size() <= 60;
+      allow update: if shopOwnerUpdateOk() || shopRatingUpdateOk();
       allow delete: if false;
     }
 
+    // --------------------------------------------------------------- products
     match /products/{productId} {
 
       function validProduct(d) {
@@ -63,56 +139,210 @@ service cloud.firestore {
           && (d.imageUrl == null || d.imageUrl is string);
       }
 
-      // Public catalogue for signed-in users.
-      allow read: if signedIn();
+      function productReviewPath(d) {
+        return /databases/$(database)/documents/reviews/$(d.lastReviewId);
+      }
 
-      // A seller can only create products in their own shop, with zero ratings.
+      // Same idea as shops: rating changes need one new review of THIS product
+      // by the caller, with matching math.
+      function productRatingUpdateOk() {
+        let d = request.resource.data;
+        let o = resource.data;
+        return isCustomer()
+          && d.diff(o).affectedKeys().hasOnly(['rating', 'reviewCount', 'lastReviewId'])
+          && d.lastReviewId is string
+          && !exists(productReviewPath(d))
+          && existsAfter(productReviewPath(d))
+          && getAfter(productReviewPath(d)).data.productId == productId
+          && getAfter(productReviewPath(d)).data.customerId == request.auth.uid
+          && d.reviewCount == o.reviewCount + 1
+          && math.abs(d.rating * d.reviewCount - o.rating * o.reviewCount
+                      - getAfter(productReviewPath(d)).data.rating) < 0.01;
+      }
+
+      // Owner edits (also covers stock deduction when the seller accepts an
+      // order). rating/reviewCount can never be touched here.
+      function productOwnerUpdateOk() {
+        return signedIn()
+          && resource.data.sellerId == request.auth.uid
+          && request.resource.data.sellerId == resource.data.sellerId
+          && request.resource.data.shopId == resource.data.shopId
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['name', 'description', 'category', 'price', 'stock',
+                         'imageUrl', 'isAvailable', 'updatedAt'])
+          && validProduct(request.resource.data);
+      }
+
+      allow read: if signedIn();
       allow create: if isSeller()
         && request.resource.data.sellerId == request.auth.uid
         && request.resource.data.shopId == request.auth.uid
         && request.resource.data.rating == 0
         && request.resource.data.reviewCount == 0
         && validProduct(request.resource.data);
-
-      // Only the owner, only editable fields, and stock can never go negative.
-      // (Phase 14 adds a controlled path for rating/reviewCount updates.)
-      allow update: if signedIn()
-        && resource.data.sellerId == request.auth.uid
-        && request.resource.data.sellerId == resource.data.sellerId
-        && request.resource.data.shopId == resource.data.shopId
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['name', 'description', 'category', 'price', 'stock',
-                       'imageUrl', 'isAvailable', 'updatedAt'])
-        && validProduct(request.resource.data);
-
+      allow update: if productOwnerUpdateOk() || productRatingUpdateOk();
       allow delete: if signedIn() && resource.data.sellerId == request.auth.uid;
     }
 
+    // ---------------------------------------------------------- deliveryAreas
     match /deliveryAreas/{areaId} {
 
       function validFee(d) {
         return d.shippingFee is number && d.shippingFee >= 0 && d.shippingFee <= 10000;
       }
 
-      // Customers need to read areas to see delivery availability and fees.
       allow read: if signedIn();
-
-      // Sellers create areas only for their own shop (shopId == uid).
       allow create: if isSeller()
+        && request.resource.data.areaId == areaId
         && request.resource.data.shopId == request.auth.uid
         && request.resource.data.cityCode is string
         && request.resource.data.cityCode.size() > 0
         && request.resource.data.isActive is bool
         && validFee(request.resource.data);
-
-      // Only the fee and enabled flag can change; location is fixed.
       allow update: if signedIn()
         && resource.data.shopId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['shippingFee', 'isActive', 'updatedAt'])
         && validFee(request.resource.data);
-
       allow delete: if signedIn() && resource.data.shopId == request.auth.uid;
+    }
+
+    // ----------------------------------------------------------------- orders
+    // Visible only to the customer who placed it and the seller who received it.
+    match /orders/{orderId} {
+
+      function createdOrderOk(d) {
+        return d.orderId == orderId
+          && d.customerId == request.auth.uid
+          && d.orderStatus == 'pending'
+          && d.inventoryDeducted == false
+          && d.statusTimes.keys().hasOnly(['pending'])
+          && d.items is list && d.items.size() > 0
+          && d.subtotal is number && d.subtotal >= 0
+          && d.shippingFee is number && d.shippingFee >= 0
+          && math.abs(d.total - (d.subtotal + d.shippingFee)) < 0.01
+          && d.paymentMethod in ['cod', 'gcash']
+          && (d.paymentMethod == 'cod'
+              || (d.paymentReference is string && d.paymentReference.size() >= 6))
+          // The order must name the real owner of the shop.
+          && get(/databases/$(database)/documents/shops/$(d.shopId)).data.sellerId == d.sellerId;
+      }
+
+      // Seller moves: accept (deducts stock), reject, then one step at a time.
+      // Nothing else on the order may change.
+      function sellerMoveOk(o, d) {
+        return (o.orderStatus == 'pending' && d.orderStatus == 'confirmed'
+                  && o.inventoryDeducted == false && d.inventoryDeducted == true)
+          || (d.inventoryDeducted == o.inventoryDeducted
+              && ((o.orderStatus == 'pending' && d.orderStatus == 'rejected')
+               || (o.orderStatus == 'confirmed' && d.orderStatus == 'preparing')
+               || (o.orderStatus == 'preparing' && d.orderStatus == 'out_for_delivery')
+               || (o.orderStatus == 'out_for_delivery' && d.orderStatus == 'delivered')));
+      }
+
+      allow read: if signedIn()
+        && (resource.data.customerId == request.auth.uid
+            || resource.data.sellerId == request.auth.uid);
+
+      allow create: if isCustomer()
+        && request.resource.data.keys().hasOnly(
+             ['orderId', 'orderNumber', 'customerId', 'sellerId', 'shopId',
+              'shopName', 'items', 'subtotal', 'shippingFee', 'total',
+              'deliveryAddress', 'paymentMethod', 'paymentReference',
+              'orderStatus', 'inventoryDeducted', 'statusTimes',
+              'createdAt', 'updatedAt'])
+        && createdOrderOk(request.resource.data);
+
+      allow update: if signedIn() && (
+        // seller
+        (resource.data.sellerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['orderStatus', 'inventoryDeducted', 'statusTimes', 'updatedAt'])
+          && sellerMoveOk(resource.data, request.resource.data)
+          && request.resource.data.statusTimes[request.resource.data.orderStatus] == request.time)
+        ||
+        // customer: cancel while still pending
+        (resource.data.customerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['orderStatus', 'statusTimes', 'updatedAt'])
+          && resource.data.orderStatus == 'pending'
+          && request.resource.data.orderStatus == 'cancelled'
+          && request.resource.data.statusTimes['cancelled'] == request.time)
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------- reviews
+    // Public to read. Created once per (order, product) by the customer who
+    // received it, only after the order is Delivered. Never edited or deleted.
+    match /reviews/{reviewId} {
+
+      function deliveredOrderOk(d) {
+        let o = get(/databases/$(database)/documents/orders/$(d.orderId)).data;
+        return o.customerId == request.auth.uid
+          && o.orderStatus == 'delivered'
+          && o.shopId == d.shopId
+          && get(/databases/$(database)/documents/products/$(d.productId)).data.shopId == d.shopId;
+      }
+
+      allow read: if signedIn();
+      allow create: if isCustomer()
+        && request.resource.data.keys().hasOnly(
+             ['reviewId', 'orderId', 'productId', 'shopId', 'customerId',
+              'customerName', 'productName', 'rating', 'comment', 'createdAt'])
+        && request.resource.data.reviewId == reviewId
+        && request.resource.data.orderId is string
+        && request.resource.data.productId is string
+        && reviewId == request.resource.data.orderId + '_' + request.resource.data.productId
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() >= 1
+        && request.resource.data.customerName.size() <= 80
+        && request.resource.data.productName is string
+        && request.resource.data.productName.size() <= 120
+        && request.resource.data.createdAt == request.time
+        && deliveredOrderOk(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------- sellerReviews
+    // One rating of the seller per delivered order: the document id IS the
+    // order id, so duplicates are impossible. Public to read, never edited.
+    match /sellerReviews/{reviewId} {
+
+      function sellerOrderOk(d) {
+        let o = get(/databases/$(database)/documents/orders/$(reviewId)).data;
+        return o.customerId == request.auth.uid
+          && o.orderStatus == 'delivered'
+          && o.shopId == d.shopId;
+      }
+
+      allow read: if signedIn();
+      allow create: if isCustomer()
+        && request.resource.data.keys().hasOnly(
+             ['reviewId', 'orderId', 'shopId', 'customerId', 'customerName',
+              'rating', 'comment', 'createdAt'])
+        && request.resource.data.reviewId == reviewId
+        && request.resource.data.orderId == reviewId
+        && request.resource.data.shopId is string
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() <= 500
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() >= 1
+        && request.resource.data.customerName.size() <= 80
+        && request.resource.data.createdAt == request.time
+        && sellerOrderOk(request.resource.data);
+      allow update, delete: if false;
     }
   }
 }

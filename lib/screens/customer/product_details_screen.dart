@@ -191,20 +191,10 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        const Card(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Reviews', style: TextStyle(fontWeight: FontWeight.w700)),
-                SizedBox(height: 6),
-                Text('Customer reviews will appear here.',
-                    style: TextStyle(color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-        ),
+        ProductReviewsSection(
+            productId: p.productId,
+            rating: p.rating,
+            reviewCount: p.reviewCount),
         const SizedBox(height: 16),
       ],
     );

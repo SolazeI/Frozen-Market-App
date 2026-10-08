@@ -23,8 +23,8 @@ class MarketProductCard extends StatelessWidget {
       sellerName: s.shopName,
       sellerLocation:
           [s.city, s.province].where((e) => e.isNotEmpty).join(', '),
-      rating: p.rating,
-      reviewCount: p.reviewCount,
+      rating: s.rating,
+      reviewCount: s.totalReviews,
       stock: p.stock,
       delivers: item.delivers,
       isLocal: location != null && item.isLocalTo(location!),

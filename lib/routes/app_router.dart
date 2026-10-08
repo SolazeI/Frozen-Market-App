@@ -14,6 +14,7 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/customer/customer_home_screen.dart';
 import '../screens/customer/checkout_screen.dart';
 import '../screens/customer/customer_cart_screen.dart';
+import '../screens/customer/customer_order_details_screen.dart';
 import '../screens/customer/customer_orders_screen.dart';
 import '../screens/customer/customer_shell.dart';
 import '../screens/customer/location_selection_screen.dart';
@@ -108,6 +109,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               orders: s.extra is List<CustomerOrder>
                   ? s.extra as List<CustomerOrder>
                   : const <CustomerOrder>[])),
+      GoRoute(
+          path: Routes.customerOrderPattern,
+          builder: (_, s) =>
+              CustomerOrderDetailsScreen(orderId: s.pathParameters['id']!)),
       // Seller area: bottom-nav shell with one branch per tab.
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => SellerShell(navigationShell: shell),

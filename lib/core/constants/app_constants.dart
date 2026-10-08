@@ -18,7 +18,8 @@ class Collections {
   static const shops = 'shops';
   static const products = 'products';
   static const orders = 'orders';
-  static const reviews = 'reviews';
+  static const reviews = 'reviews'; // product reviews: {orderId}_{productId}
+  static const sellerReviews = 'sellerReviews'; // seller ratings: {orderId}
   static const deliveryAreas = 'deliveryAreas'; // shops/{shopId}/deliveryAreas
 }
 

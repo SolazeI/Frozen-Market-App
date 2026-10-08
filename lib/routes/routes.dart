@@ -18,6 +18,8 @@ class Routes {
   static const customerProfile = '/customer/profile';
   static const checkout = '/customer/checkout';
   static const orderConfirmation = '/customer/order-confirmation';
+  static const customerOrderPattern = '/customer/orders/:id';
+  static String customerOrder(String id) => '/customer/orders/$id';
   // Customer full-screen pages
   static const categoryPattern = '/customer/category/:name';
   static String category(String name) =>

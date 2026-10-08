@@ -86,6 +86,32 @@ class SellerOrderController extends AsyncNotifier<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Customer actions
+// ---------------------------------------------------------------------------
+final customerOrderControllerProvider =
+    AsyncNotifierProvider<CustomerOrderController, void>(
+        CustomerOrderController.new);
+
+class CustomerOrderController extends AsyncNotifier<void> {
+  @override
+  FutureOr<void> build() {}
+
+  /// Pending -> Cancelled. Any other status is rejected by the repository.
+  Future<bool> cancel(CustomerOrder o) async {
+    final u = ref.read(currentUserProvider);
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (u == null || !u.isCustomer) {
+        throw const AppException(
+            "You don't have permission to perform this action.");
+      }
+      await ref.read(orderRepositoryProvider).cancelOrder(o.orderId, u.uid);
+    });
+    return !state.hasError;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Checkout
 // ---------------------------------------------------------------------------
 final checkoutControllerProvider =

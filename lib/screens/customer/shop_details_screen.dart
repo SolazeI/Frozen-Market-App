@@ -51,10 +51,7 @@ class ShopDetailsScreen extends ConsumerWidget {
                     children: [
                       _ProductsTab(shopId: shopId),
                       _DeliveryTab(shopId: shopId),
-                      const EmptyState(
-                          icon: Icons.star_outline_rounded,
-                          title: 'No reviews yet',
-                          message: 'Customer reviews will appear here.'),
+                      ShopReviewsList(shopId: shopId),
                     ],
                   ),
                 ),

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../models/order.dart';
 import '../../providers/order_providers.dart';
+import '../../routes/routes.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/widgets.dart';
 
-/// Orders tab: the customer's orders, newest first.
-/// (Order details with the status timeline come in Phase 13.)
+/// Orders tab: the customer's orders, newest first. Tap one to track it.
 class CustomerOrdersScreen extends ConsumerWidget {
   const CustomerOrdersScreen({super.key});
 
@@ -32,7 +33,9 @@ class CustomerOrdersScreen extends ConsumerWidget {
           itemBuilder: (_, i) {
             final o = orders[i];
             return Card(
-              child: Padding(
+              child: InkWell(
+                onTap: () => context.push(Routes.customerOrder(o.orderId)),
+                child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,6 +75,7 @@ class CustomerOrdersScreen extends ConsumerWidget {
                     ]),
                   ],
                 ),
+              ),
               ),
             );
           },

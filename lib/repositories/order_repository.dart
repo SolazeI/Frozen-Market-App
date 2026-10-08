@@ -250,6 +250,9 @@ class OrderRepository {
         if (to == OrderStatus.confirmed) {
           throw const AppException('Accept the order to confirm it.');
         }
+        if (to == OrderStatus.cancelled) {
+          throw const AppException('Only the customer can cancel an order.');
+        }
         final ref = _orders.doc(orderId);
         final snap = await tx.get(ref);
         if (!snap.exists) throw const AppException('This order no longer exists.');
@@ -266,6 +269,33 @@ class OrderRepository {
         tx.update(ref, {
           'orderStatus': to.value,
           'statusTimes.${to.value}': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+  // ---------------------------------------------------------------------
+  // Customer: cancel while the order is still Pending. Stock is only ever
+  // deducted on accept, so there is nothing to give back.
+  // ---------------------------------------------------------------------
+  Future<void> cancelOrder(String orderId, String customerId) =>
+      _db.runTransaction((tx) async {
+        final ref = _orders.doc(orderId);
+        final snap = await tx.get(ref);
+        if (!snap.exists) throw const AppException('This order no longer exists.');
+        final order = CustomerOrder.fromMap(snap.data()!);
+
+        if (order.customerId != customerId) {
+          throw const AppException(
+              "You don't have permission to perform this action.");
+        }
+        if (!order.status.canTransitionTo(OrderStatus.cancelled)) {
+          throw AppException(
+              'This order is already ${order.status.label.toLowerCase()} and can no longer be cancelled.');
+        }
+        tx.update(ref, {
+          'orderStatus': OrderStatus.cancelled.value,
+          'statusTimes.${OrderStatus.cancelled.value}':
+              FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
       });
