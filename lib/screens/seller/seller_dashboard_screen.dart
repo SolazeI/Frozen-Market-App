@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
+import '../../models/order.dart';
 import '../../models/seller_stats.dart';
 import '../../models/shop.dart';
-import '../../models/order.dart';
 import '../../providers/order_providers.dart';
 import '../../providers/shop_providers.dart';
 import '../../routes/routes.dart';
@@ -39,16 +39,17 @@ class SellerDashboardScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               stats.maybeWhen(
                 data: (st) => _StatsGrid(stats: st),
-                orElse: () => const SizedBox(
-                    height: 160, child: LoadingView()),
+                orElse: () =>
+                    const SizedBox(height: 160, child: LoadingView()),
               ),
               const SectionHeader(
                   title: 'Quick actions',
                   padding: EdgeInsets.fromLTRB(0, 24, 0, 12)),
               const _QuickActions(),
-              const SectionHeader(
+              SectionHeader(
                   title: 'Recent orders',
-                  padding: EdgeInsets.fromLTRB(0, 24, 0, 12)),
+                  padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+                  onAction: () => context.go(Routes.sellerOrders)),
               const _RecentOrders(),
             ],
           );
@@ -64,29 +65,36 @@ class _ShopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final location = [shop.city, shop.province]
-        .where((s) => s.isNotEmpty)
-        .join(', ');
+    final location =
+        [shop.city, shop.province].where((s) => s.isNotEmpty).join(', ');
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(20),
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppColors.softShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 64,
+            height: 64,
+            padding: const EdgeInsets.all(2.5),
             decoration: const BoxDecoration(
-                color: Colors.white24, shape: BoxShape.circle),
-            child: const Icon(Icons.storefront, color: Colors.white, size: 28),
+                color: Colors.white, shape: BoxShape.circle),
+            child: NetworkImageBox(
+              url: shop.logoUrl,
+              fallbackIcon: Icons.storefront,
+              borderRadius: BorderRadius.circular(30),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('Welcome back',
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
                 Text(shop.shopName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -167,17 +175,17 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = <(IconData, String, VoidCallback)>[
-      (Icons.add_box_outlined, 'Add product',
-    () => context.push(Routes.productAdd)),
-      (Icons.inventory_2_outlined, 'Products',
-          () => context.go(Routes.sellerProducts)),
-      (Icons.receipt_long_outlined, 'Orders',
-          () => context.go(Routes.sellerOrders)),
-      (Icons.local_shipping_outlined, 'Delivery areas',
-          () => context.push(Routes.deliveryAreas)),
-      (Icons.settings_outlined, 'Shop settings',
-          () => context.push(Routes.editShop)),
+    final actions = <(IconData, String, Color, Color, VoidCallback)>[
+      (Icons.add_box_outlined, 'Add product', AppColors.primary, AppColors.ice,
+          () => context.push(Routes.productAdd)),
+      (Icons.inventory_2_outlined, 'Products', AppColors.accent,
+          const Color(0xFFE1F5FE), () => context.go(Routes.sellerProducts)),
+      (Icons.receipt_long_outlined, 'Orders', AppColors.warning,
+          AppColors.warningBg, () => context.go(Routes.sellerOrders)),
+      (Icons.local_shipping_outlined, 'Delivery areas', AppColors.success,
+          AppColors.successBg, () => context.push(Routes.deliveryAreas)),
+      (Icons.settings_outlined, 'Shop settings', AppColors.textSecondary,
+          const Color(0xFFEAEFF4), () => context.push(Routes.editShop)),
     ];
 
     return GridView.count(
@@ -186,16 +194,22 @@ class _QuickActions extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.05,
+      childAspectRatio: 0.98,
       children: [
         for (final a in actions)
           Card(
             child: InkWell(
-              onTap: a.$3,
+              onTap: a.$5,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(a.$1, color: AppColors.primary, size: 28),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                        color: a.$4, borderRadius: BorderRadius.circular(14)),
+                    child: Icon(a.$1, color: a.$3, size: 24),
+                  ),
                   const SizedBox(height: 8),
                   Text(a.$2,
                       textAlign: TextAlign.center,
@@ -221,10 +235,17 @@ class _RecentOrders extends ConsumerWidget {
     if (orders.isEmpty) {
       return const Card(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(28),
           child: Center(
-            child: Text("You don't have any orders yet.",
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: Column(
+              children: [
+                Icon(Icons.receipt_long_outlined,
+                    size: 36, color: AppColors.textSecondary),
+                SizedBox(height: 8),
+                Text("You don't have any orders yet.",
+                    style: TextStyle(color: AppColors.textSecondary)),
+              ],
+            ),
           ),
         ),
       );
@@ -245,9 +266,6 @@ class _RecentOrders extends ConsumerWidget {
               ),
             ),
           ),
-        TextButton(
-            onPressed: () => context.go(Routes.sellerOrders),
-            child: const Text('View all orders')),
       ],
     );
   }

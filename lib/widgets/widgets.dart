@@ -1,6 +1,7 @@
 export 'address_fields.dart';
 export 'app_snackbar.dart';
 export 'category_chips.dart';
+export 'category_tiles.dart';
 export 'confirm_dialog.dart';
 export 'delivery_badge.dart';
 export 'frost_button.dart';
@@ -17,5 +18,6 @@ export 'rating_widgets.dart';
 export 'review_widgets.dart';
 export 'role_gate.dart';
 export 'section_header.dart';
+export 'skeleton.dart';
 export 'state_views.dart';
 export 'stat_card.dart';

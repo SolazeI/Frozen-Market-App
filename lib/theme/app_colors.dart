@@ -26,4 +26,21 @@ class AppColors {
   static const error = Color(0xFFD33A3A);
   static const errorBg = Color(0xFFFCE6E6);
   static const star = Color(0xFFFFB400);
+
+  // Polish helpers
+  /// Brand gradient used by headers and hero banners.
+  static const heroGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF2E6FD0), Color(0xFF123D80)],
+  );
+
+  /// Soft, cool-tinted shadow for floating surfaces.
+  static const softShadow = [
+    BoxShadow(
+      color: Color(0x1A123D80),
+      blurRadius: 18,
+      offset: Offset(0, 6),
+    ),
+  ];
 }

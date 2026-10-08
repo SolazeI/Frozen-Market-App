@@ -4,10 +4,12 @@ import '../core/utils/formatters.dart';
 import '../theme/app_colors.dart';
 import 'delivery_badge.dart';
 import 'network_image_box.dart';
-import 'rating_widgets.dart';
 
 /// Marketplace product tile. Takes plain values (not a model) so it stays
 /// reusable; screens map Product + delivery result into these params.
+///
+/// Layout: big photo with overlays (rating bottom-left, "n left" top-left,
+/// "Sold out" veil), then name, price, seller, location and delivery pill.
 class ProductCard extends StatelessWidget {
   const ProductCard({
     super.key,
@@ -42,17 +44,18 @@ class ProductCard extends StatelessWidget {
   static const gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
     maxCrossAxisExtent: 220,
     childAspectRatio: 0.56,
-    mainAxisSpacing: 12,
-    crossAxisSpacing: 12,
+    mainAxisSpacing: 14,
+    crossAxisSpacing: 14,
   );
 
   @override
   Widget build(BuildContext context) {
     final outOfStock = stock <= 0;
+    final lowStock = !outOfStock && stock <= 5;
     final t = Theme.of(context).textTheme;
 
     return Opacity(
-      opacity: delivers ? 1 : 0.7,
+      opacity: delivers ? 1 : 0.72,
       child: Card(
         child: InkWell(
           onTap: onTap,
@@ -64,20 +67,51 @@ class ProductCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     NetworkImageBox(url: imageUrl),
+                    // Soft bottom scrim so the rating pill stays readable.
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            Color(0x33000000),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (lowStock)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: _Pill(
+                          text: 'Only $stock left',
+                          background: AppColors.warning,
+                          foreground: Colors.white,
+                        ),
+                      ),
+                    if (reviewCount > 0)
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: _RatingPill(rating: rating, count: reviewCount),
+                      ),
                     if (outOfStock)
                       Container(
-                        color: Colors.black45,
+                        color: Colors.black54,
                         alignment: Alignment.center,
-                        child: const Text('Out of stock',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700)),
+                        child: const _Pill(
+                          text: 'Sold out',
+                          background: Colors.white,
+                          foreground: AppColors.textPrimary,
+                        ),
                       ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -86,32 +120,19 @@ class ProductCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: t.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600, height: 1.2)),
+                            fontWeight: FontWeight.w600, height: 1.25)),
                     const SizedBox(height: 4),
                     Text(Formatters.peso(price),
                         style: t.titleMedium?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     _IconLine(
                         icon: Icons.storefront_outlined, text: sellerName),
-                    _IconLine(
-                        icon: Icons.location_on_outlined,
-                        text: sellerLocation),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        RatingSummary(
-                            rating: rating, reviewCount: reviewCount),
-                        const Spacer(),
-                        if (!outOfStock && stock <= 5)
-                          Text('$stock left',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.warning,
-                                  fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                    if (sellerLocation.isNotEmpty)
+                      _IconLine(
+                          icon: Icons.location_on_outlined,
+                          text: sellerLocation),
                     const SizedBox(height: 8),
                     DeliveryBadge(
                       delivers: delivers,
@@ -127,6 +148,50 @@ class ProductCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill(
+      {required this.text, required this.background, required this.foreground});
+  final String text;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+            color: background, borderRadius: BorderRadius.circular(20)),
+        child: Text(text,
+            style: TextStyle(
+                color: foreground, fontSize: 11, fontWeight: FontWeight.w700)),
+      );
+}
+
+class _RatingPill extends StatelessWidget {
+  const _RatingPill({required this.rating, required this.count});
+  final double rating;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+            const SizedBox(width: 2),
+            Text(rating.toStringAsFixed(1),
+                style: const TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w800)),
+            Text(' ($count)',
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary)),
+          ],
+        ),
+      );
 }
 
 class _IconLine extends StatelessWidget {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Dashboard metric tile: icon, big value, small label.
+/// Dashboard metric tile: tinted icon, big value, small label.
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -28,10 +28,12 @@ class StatCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration:
-                    BoxDecoration(color: background, shape: BoxShape.circle),
-                child: Icon(icon, size: 20, color: color),
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                    color: background,
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, size: 21, color: color),
               ),
               FittedBox(
                 fit: BoxFit.scaleDown,
@@ -39,12 +41,16 @@ class StatCard extends StatelessWidget {
                 child: Text(value,
                     style: Theme.of(context)
                         .textTheme
-                        .titleLarge
+                        .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w800)),
               ),
               Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 12.5, color: AppColors.textSecondary)),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary)),
             ],
           ),
         ),

@@ -37,14 +37,9 @@ class CustomerHomeScreen extends ConsumerWidget {
             SliverToBoxAdapter(child: _Header(location: loc)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: CategoryChips(
-                  selected: ProductCategories.all,
-                  onSelected: (c) {
-                    if (c != ProductCategories.all) {
-                      context.push(Routes.category(c));
-                    }
-                  },
+                padding: const EdgeInsets.only(top: 20),
+                child: CategoryTiles(
+                  onSelected: (c) => context.push(Routes.category(c)),
                 ),
               ),
             ),
@@ -73,7 +68,12 @@ class CustomerHomeScreen extends ConsumerWidget {
     }
 
     return feed.when(
-      loading: () => [const SliverFillRemaining(child: LoadingView())],
+      loading: () => [
+        const SliverToBoxAdapter(
+            child: SectionHeader(title: 'Nearby products')),
+        const SliverToBoxAdapter(
+            child: SkeletonProductGrid(count: 6, shrinkWrap: true)),
+      ],
       error: (e, _) => [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -108,39 +108,51 @@ class CustomerHomeScreen extends ConsumerWidget {
 
         return [
           if (top.isNotEmpty) ...[
-            const SliverToBoxAdapter(child: SectionHeader(title: 'Recommended')),
+            const SliverToBoxAdapter(
+                child: SectionHeader(
+                    title: 'Recommended', subtitle: 'Top rated for you')),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 330,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: top.length > 8 ? 8 : top.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) => SizedBox(
-                      width: 170,
-                      child: MarketProductCard(item: top[i], location: loc)),
+              child: FadeIn(
+                child: SizedBox(
+                  height: 335,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    itemCount: top.length > 8 ? 8 : top.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 14),
+                    itemBuilder: (_, i) => SizedBox(
+                        width: 172,
+                        child: MarketProductCard(item: top[i], location: loc)),
+                  ),
                 ),
               ),
             ),
           ],
-          if (local.isNotEmpty) ..._grid('Nearby products', local, loc),
+          if (local.isNotEmpty)
+            ..._grid('Nearby products', 'Sellers in ${loc.city}', local, loc),
           if (remote.isNotEmpty)
-            ..._grid('From other locations', remote, loc),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ..._grid('From other locations', 'They deliver to you too',
+                remote, loc),
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
         ];
       },
     );
   }
 
-  List<Widget> _grid(String title, List<MarketItem> items, PsgcLocation loc) => [
-        SliverToBoxAdapter(child: SectionHeader(title: title)),
+  List<Widget> _grid(String title, String subtitle, List<MarketItem> items,
+          PsgcLocation loc) =>
+      [
+        SliverToBoxAdapter(
+            child: SectionHeader(title: title, subtitle: subtitle)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverGrid(
             gridDelegate: ProductCard.gridDelegate,
             delegate: SliverChildBuilderDelegate(
-              (_, i) => MarketProductCard(item: items[i], location: loc),
+              (_, i) => FadeIn(
+                duration: Duration(milliseconds: 240 + (i < 6 ? i * 60 : 360)),
+                child: MarketProductCard(item: items[i], location: loc),
+              ),
               childCount: items.length,
             ),
           ),
@@ -156,34 +168,52 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     return Container(
-      color: AppColors.primary,
-      padding: EdgeInsets.fromLTRB(16, top + 12, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, top + 14, 16, 22),
+      decoration: const BoxDecoration(
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.ac_unit_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 8),
-              Text(AppConstants.appName,
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800)),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                    color: Colors.white24, shape: BoxShape.circle),
+                child: const Icon(Icons.ac_unit_rounded,
+                    color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AppConstants.appName,
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1)),
+                    Text(AppConstants.tagline,
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 11.5)),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 2),
-          const Text(AppConstants.tagline,
-              style: TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             onTap: () => context.push(Routes.locationSelect),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(12)),
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(14)),
               child: Row(
                 children: [
                   const Icon(Icons.location_on, color: Colors.white, size: 18),
@@ -200,24 +230,37 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                   const Text('Change',
-                      style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700)),
+                  const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: Colors.white, size: 18),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             onTap: () => context.go(Routes.customerSearch),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4)),
+                ],
+              ),
               child: const Row(
                 children: [
-                  Icon(Icons.search, color: AppColors.textSecondary),
-                  SizedBox(width: 8),
-                  Text('Search frozen goods…',
+                  Icon(Icons.search, color: AppColors.primary),
+                  SizedBox(width: 10),
+                  Text('Search frozen goods, shops…',
                       style: TextStyle(color: AppColors.textSecondary)),
                 ],
               ),

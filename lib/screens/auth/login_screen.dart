@@ -47,24 +47,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             Container(
               width: double.infinity,
-              color: AppColors.ice,
+              decoration: const BoxDecoration(
+                gradient: AppColors.heroGradient,
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(36)),
+              ),
               padding: EdgeInsets.fromLTRB(
-                  24, MediaQuery.of(context).padding.top + 40, 24, 36),
-              child: const FrostLogo(size: 76, showTagline: true),
+                  24, MediaQuery.of(context).padding.top + 44, 24, 44),
+              child: const FrostLogo(size: 76, showTagline: true, onDark: true),
             ),
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Log in to your account',
+                    Text('Welcome back',
                         style: Theme.of(context)
                             .textTheme
-                            .titleLarge
+                            .headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 4),
+                    const Text('Log in to keep shopping frozen goods.',
+                        style: TextStyle(color: AppColors.textSecondary)),
+                    const SizedBox(height: 22),
                     FrostTextField(
                       label: 'Email',
                       controller: _email,
@@ -93,20 +100,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 4),
                     FrostButton(
                         label: 'Log in', isLoading: loading, onPressed: _submit),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     const Row(children: [
                       Expanded(child: Divider()),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 12),
                         child: Text('or continue with',
                             style: TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12)),
+                                color: AppColors.textSecondary, fontSize: 12)),
                       ),
                       Expanded(child: Divider()),
                     ]),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(color: AppColors.border),
+                        backgroundColor: AppColors.surface,
+                      ),
                       onPressed: loading
                           ? null
                           : () => ref
@@ -130,8 +141,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text("Don't have an account?",
-                            style:
-                                TextStyle(color: AppColors.textSecondary)),
+                            style: TextStyle(color: AppColors.textSecondary)),
                         TextButton(
                           onPressed: loading
                               ? null

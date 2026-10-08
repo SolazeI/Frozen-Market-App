@@ -49,14 +49,16 @@ class DeliveryBadge extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: dense ? 8 : 12, vertical: dense ? 4 : 8),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          horizontal: dense ? 8 : 14, vertical: dense ? 4 : 9),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(dense ? 20 : 12),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: dense ? 13 : 16, color: fg),
-          const SizedBox(width: 4),
+          Icon(icon, size: dense ? 13 : 17, color: fg),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               text,
@@ -64,7 +66,7 @@ class DeliveryBadge extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                   fontSize: dense ? 11 : 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: fg),
             ),
           ),

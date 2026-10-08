@@ -16,8 +16,9 @@ import '../../routes/routes.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/widgets.dart';
 
-/// Customer product page: details, seller, delivery availability + fee,
-/// quantity selector. Out-of-area products are shown but cannot be ordered.
+/// Customer product page: hero photo, price, seller, delivery availability
+/// + fee, quantity selector and a sticky purchase bar. Out-of-area products
+/// are shown but cannot be ordered.
 class ProductDetailsScreen extends ConsumerStatefulWidget {
   const ProductDetailsScreen({super.key, required this.productId});
   final String productId;
@@ -56,45 +57,29 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     final canOrder = product != null &&
         product.isOrderable &&
         (quote?.valueOrNull != null);
+    final p = (product != null && product.isAvailable) ? product : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Product details')),
-      body: AsyncValueView<Product?>(
-        value: async,
-        onRetry: () => ref.invalidate(productProvider(widget.productId)),
-        data: (p) => p == null || !p.isAvailable
-            ? EmptyState(
-                icon: Icons.search_off_rounded,
-                title: 'Product not available',
-                message: 'This product was removed or is no longer listed.',
-                actionLabel: 'Back',
-                onAction: () => context.pop())
-            : _body(p),
-      ),
-      bottomNavigationBar: product == null
+      appBar: p != null ? null : AppBar(title: const Text('Product details')),
+      body: p != null
+          ? _body(p)
+          : AsyncValueView<Product?>(
+              value: async,
+              onRetry: () => ref.invalidate(productProvider(widget.productId)),
+              data: (_) => EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'Product not available',
+                  message: 'This product was removed or is no longer listed.',
+                  actionLabel: 'Back',
+                  onAction: () => context.pop()),
+            ),
+      bottomNavigationBar: p == null
           ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: canOrder ? () => _addToCart(product) : null,
-                        icon: const Icon(Icons.add_shopping_cart),
-                        label: const Text('Add to cart'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: canOrder ? () => _buyNow(product) : null,
-                        child: const Text('Buy now'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          : _PurchaseBar(
+              total: p.price * _qty,
+              canOrder: canOrder,
+              onAdd: () => _addToCart(p),
+              onBuy: () => _buyNow(p),
             ),
     );
   }
@@ -104,101 +89,223 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
     final shop = ref.watch(shopByIdProvider(p.shopId)).valueOrNull;
     final maxQty = p.stock < 1 ? 1 : p.stock;
     if (_qty > maxQty) _qty = maxQty;
+    final t = Theme.of(context).textTheme;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        NetworkImageBox(
-            url: p.imageUrl,
-            aspectRatio: 1.2,
-            borderRadius: BorderRadius.circular(20)),
-        const SizedBox(height: 16),
-        Text(p.name,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        Text(Formatters.peso(p.price),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.primary, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Chip(
-                label: Text(p.category),
-                backgroundColor: AppColors.ice,
-                side: BorderSide.none),
-            Chip(
-              label: Text(p.inStock ? '${p.stock} in stock' : 'Out of stock'),
-              backgroundColor:
-                  p.inStock ? AppColors.successBg : AppColors.errorBg,
-              side: BorderSide.none,
-            ),
-            RatingSummary(rating: p.rating, reviewCount: p.reviewCount, size: 15),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _DeliverySection(product: p, location: loc, shop: shop),
-        const SizedBox(height: 12),
-        if (shop != null) _ShopTile(shop: shop),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 310,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26))),
+          flexibleSpace: FlexibleSpaceBar(
+            collapseMode: CollapseMode.parallax,
+            background: Stack(
+              fit: StackFit.expand,
               children: [
-                const Expanded(
-                    child: Text('Quantity',
-                        style: TextStyle(fontWeight: FontWeight.w700))),
-                IconButton.filledTonal(
-                  onPressed: _qty > 1 ? () => setState(() => _qty--) : null,
-                  icon: const Icon(Icons.remove),
-                ),
-                SizedBox(
-                  width: 44,
-                  child: Text('$_qty',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w800)),
-                ),
-                IconButton.filledTonal(
-                  onPressed: _qty < p.stock ? () => setState(() => _qty++) : null,
-                  icon: const Icon(Icons.add),
+                NetworkImageBox(url: p.imageUrl),
+                // Top scrim keeps the back button readable on any photo.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.center,
+                      colors: [Color(0x99000000), Colors.transparent],
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        Card(
+        SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Description',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                Text(p.description.isEmpty ? 'No description.' : p.description,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, height: 1.4)),
+                Text(p.name,
+                    style: t.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800, height: 1.2)),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(Formatters.peso(p.price),
+                        style: t.headlineSmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800)),
+                    const Spacer(),
+                    RatingSummary(
+                        rating: p.rating, reviewCount: p.reviewCount, size: 15),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Chip(
+                        avatar: const Icon(Icons.category_outlined,
+                            size: 16, color: AppColors.primary),
+                        label: Text(p.category),
+                        backgroundColor: AppColors.ice,
+                        side: BorderSide.none),
+                    Chip(
+                      avatar: Icon(
+                          p.inStock
+                              ? Icons.inventory_2_outlined
+                              : Icons.block_rounded,
+                          size: 16,
+                          color: p.inStock
+                              ? AppColors.success
+                              : AppColors.error),
+                      label: Text(
+                          p.inStock ? '${p.stock} in stock' : 'Out of stock'),
+                      backgroundColor:
+                          p.inStock ? AppColors.successBg : AppColors.errorBg,
+                      side: BorderSide.none,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _DeliverySection(product: p, location: loc, shop: shop),
+                const SizedBox(height: 12),
+                if (shop != null) _ShopTile(shop: shop),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                            child: Text('Quantity',
+                                style: TextStyle(fontWeight: FontWeight.w700))),
+                        IconButton.filledTonal(
+                          onPressed:
+                              _qty > 1 ? () => setState(() => _qty--) : null,
+                          icon: const Icon(Icons.remove),
+                        ),
+                        SizedBox(
+                          width: 48,
+                          child: Text('$_qty',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w800)),
+                        ),
+                        IconButton.filledTonal(
+                          onPressed: _qty < p.stock
+                              ? () => setState(() => _qty++)
+                              : null,
+                          icon: const Icon(Icons.add),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Description',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        Text(
+                            p.description.isEmpty
+                                ? 'No description.'
+                                : p.description,
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, height: 1.5)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ProductReviewsSection(
+                    productId: p.productId,
+                    rating: p.rating,
+                    reviewCount: p.reviewCount),
+                const SizedBox(height: 12),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        ProductReviewsSection(
-            productId: p.productId,
-            rating: p.rating,
-            reviewCount: p.reviewCount),
-        const SizedBox(height: 16),
       ],
     );
   }
+}
+
+/// Sticky bottom bar: live total + Add to cart / Buy now.
+class _PurchaseBar extends StatelessWidget {
+  const _PurchaseBar({
+    required this.total,
+    required this.canOrder,
+    required this.onAdd,
+    required this.onBuy,
+  });
+  final double total;
+  final bool canOrder;
+  final VoidCallback onAdd;
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          boxShadow: [
+            BoxShadow(
+                color: Color(0x1A123D80), blurRadius: 16, offset: Offset(0, -4)),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Text('Total (excl. shipping)',
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12.5)),
+                  const Spacer(),
+                  Text(Formatters.peso(total),
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: canOrder ? onAdd : null,
+                      icon: const Icon(Icons.add_shopping_cart),
+                      label: const Text('Add to cart'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: canOrder ? onBuy : null,
+                      child: const Text('Buy now'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _DeliverySection extends ConsumerWidget {
@@ -214,7 +321,8 @@ class _DeliverySection extends ConsumerWidget {
     if (loc == null) {
       return Card(
         child: ListTile(
-          leading: const Icon(Icons.location_on_outlined),
+          leading: const Icon(Icons.location_on_outlined,
+              color: AppColors.primary),
           title: const Text('Choose your delivery location'),
           subtitle: const Text('To see if this seller delivers to you.'),
           trailing: const Icon(Icons.chevron_right),
@@ -246,6 +354,9 @@ class _DeliverySection extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text('Delivery',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 10),
               DeliveryBadge(
                 dense: false,
                 delivers: area != null,
@@ -254,7 +365,8 @@ class _DeliverySection extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               if (area != null)
-                Text('Shipping to ${loc.shortLabel}: ${Formatters.peso(area.shippingFee)}',
+                Text(
+                    'Shipping to ${loc.shortLabel}: ${Formatters.peso(area.shippingFee)}',
                     style: const TextStyle(color: AppColors.textSecondary))
               else ...[
                 Text("This seller doesn't deliver to ${loc.shortLabel}.",
@@ -302,7 +414,9 @@ class _ShopTile extends StatelessWidget {
               RatingSummary(rating: shop.rating, reviewCount: shop.totalReviews),
             ],
           ),
-          trailing: const Text('View shop'),
+          trailing: const Text('View shop',
+              style: TextStyle(
+                  color: AppColors.primary, fontWeight: FontWeight.w700)),
           onTap: () => context.push(Routes.customerShop(shop.shopId)),
         ),
       );
