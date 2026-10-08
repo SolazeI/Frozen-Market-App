@@ -1,0 +1,118 @@
+rules_version = '2';
+// INTERIM rules (Phase 9): users, shops, products, deliveryAreas.
+// Delivery areas, orders and reviews are added in later phases; the full set
+// is finalized in Phase 15. Everything not listed is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function isSeller() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['customer', 'seller'];
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['fullName', 'phone', 'address', 'region', 'regionCode',
+                       'province', 'provinceCode', 'city', 'cityCode',
+                       'barangay', 'barangayCode', 'profileImage',
+                       'selectedLocation'])
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() >= 2
+        && request.resource.data.fullName.size() <= 80;
+      allow delete: if false;
+    }
+
+    match /shops/{shopId} {
+      allow read: if signedIn();
+      allow create: if isOwner(shopId)
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.rating == 0
+        && request.resource.data.totalReviews == 0
+        && request.resource.data.totalSales == 0
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller';
+      allow update: if isOwner(shopId)
+        && resource.data.sellerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['shopName', 'description', 'logoUrl', 'address',
+                       'region', 'regionCode', 'province', 'provinceCode',
+                       'city', 'cityCode', 'barangay', 'barangayCode',
+                       'updatedAt'])
+        && request.resource.data.shopName is string
+        && request.resource.data.shopName.size() >= 3
+        && request.resource.data.shopName.size() <= 60;
+      allow delete: if false;
+    }
+
+    match /products/{productId} {
+
+      function validProduct(d) {
+        return d.name is string && d.name.size() >= 3 && d.name.size() <= 80
+          && d.description is string && d.description.size() <= 1000
+          && d.category in ['Frozen Meat', 'Seafood', 'Chicken', 'Pork', 'Beef',
+                            'Ready-to-Cook', 'Processed Food', 'Frozen Vegetables', 'Other']
+          && d.price is number && d.price > 0 && d.price <= 1000000
+          && d.stock is int && d.stock >= 0
+          && d.isAvailable is bool
+          && (d.imageUrl == null || d.imageUrl is string);
+      }
+
+      // Public catalogue for signed-in users.
+      allow read: if signedIn();
+
+      // A seller can only create products in their own shop, with zero ratings.
+      allow create: if isSeller()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.shopId == request.auth.uid
+        && request.resource.data.rating == 0
+        && request.resource.data.reviewCount == 0
+        && validProduct(request.resource.data);
+
+      // Only the owner, only editable fields, and stock can never go negative.
+      // (Phase 14 adds a controlled path for rating/reviewCount updates.)
+      allow update: if signedIn()
+        && resource.data.sellerId == request.auth.uid
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.shopId == resource.data.shopId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'description', 'category', 'price', 'stock',
+                       'imageUrl', 'isAvailable', 'updatedAt'])
+        && validProduct(request.resource.data);
+
+      allow delete: if signedIn() && resource.data.sellerId == request.auth.uid;
+    }
+
+    match /deliveryAreas/{areaId} {
+
+      function validFee(d) {
+        return d.shippingFee is number && d.shippingFee >= 0 && d.shippingFee <= 10000;
+      }
+
+      // Customers need to read areas to see delivery availability and fees.
+      allow read: if signedIn();
+
+      // Sellers create areas only for their own shop (shopId == uid).
+      allow create: if isSeller()
+        && request.resource.data.shopId == request.auth.uid
+        && request.resource.data.cityCode is string
+        && request.resource.data.cityCode.size() > 0
+        && request.resource.data.isActive is bool
+        && validFee(request.resource.data);
+
+      // Only the fee and enabled flag can change; location is fixed.
+      allow update: if signedIn()
+        && resource.data.shopId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['shippingFee', 'isActive', 'updatedAt'])
+        && validFee(request.resource.data);
+
+      allow delete: if signedIn() && resource.data.shopId == request.auth.uid;
+    }
+  }
+}

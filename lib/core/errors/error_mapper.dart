@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'app_exception.dart';
-
-import 'package:flutter/foundation.dart';
 
 /// Converts any thrown object into a friendly, user-facing message.
 /// Never show raw Firebase error codes in the UI.
@@ -56,6 +56,21 @@ String friendlyError(Object error) {
       default:
         return 'Something went wrong. Please try again.';
     }
+  }
+
+  // Google Sign-In / platform plugin failures.
+  if (error is PlatformException) {
+    final msg = '${error.message}';
+    if (msg.contains('ApiException: 10') || msg.contains('DEVELOPER_ERROR')) {
+      return 'Google sign-in is not configured for this build (SHA-1 missing).';
+    }
+    if (msg.contains('ApiException: 7') || error.code == 'network_error') {
+      return 'No internet connection. Check your network and try again.';
+    }
+    if (msg.contains('ApiException: 12500')) {
+      return 'Google sign-in is not set up correctly. Check the Firebase support email.';
+    }
+    return 'Google sign-in failed. Please try again.';
   }
 
   if (error is SocketException) {

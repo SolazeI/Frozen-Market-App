@@ -173,9 +173,6 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void soon(String what) =>
-        AppSnackbar.info(context, '$what is coming soon.');
-
     final actions = <(IconData, String, VoidCallback)>[
       (Icons.add_box_outlined, 'Add product',
     () => context.push(Routes.productAdd)),
@@ -184,7 +181,7 @@ class _QuickActions extends StatelessWidget {
       (Icons.receipt_long_outlined, 'Orders',
           () => context.go(Routes.sellerOrders)),
       (Icons.local_shipping_outlined, 'Delivery areas',
-          () => soon('Delivery areas')),
+          () => context.push(Routes.deliveryAreas)),
       (Icons.settings_outlined, 'Shop settings',
           () => context.push(Routes.editShop)),
     ];

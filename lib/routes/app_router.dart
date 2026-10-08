@@ -10,7 +10,15 @@ import '../screens/auth/splash_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/customer/customer_home_screen.dart';
+import '../screens/customer/customer_cart_screen.dart';
+import '../screens/customer/customer_orders_screen.dart';
+import '../screens/customer/customer_shell.dart';
 import '../screens/customer/location_selection_screen.dart';
+import '../screens/customer/product_details_screen.dart';
+import '../screens/customer/search_screen.dart';
+import '../screens/customer/shop_details_screen.dart';
+import '../screens/seller/delivery_area_form_screen.dart';
+import '../screens/seller/delivery_areas_screen.dart';
 import '../screens/seller/seller_dashboard_screen.dart';
 import '../screens/seller/edit_shop_screen.dart';
 import '../screens/seller/product_form_screen.dart';
@@ -38,12 +46,53 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: Routes.completeProfile,
           builder: (_, __) => const RegisterScreen(completeProfile: true)),
-      GoRoute(
-          path: Routes.customerHome,
-          builder: (_, __) => const CustomerHomeScreen()),
+      // Customer area: bottom-nav shell with one branch per tab.
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, shell) => CustomerShell(navigationShell: shell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.customerHome,
+                builder: (_, __) => const CustomerHomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.customerSearch,
+                builder: (_, __) => const SearchScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.customerCart,
+                builder: (_, __) => const CustomerCartScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.customerOrders,
+                builder: (_, __) => const CustomerOrdersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: Routes.customerProfile,
+                builder: (_, __) => const ProfileScreen()),
+          ]),
+        ],
+      ),
       GoRoute(
           path: Routes.locationSelect,
           builder: (_, __) => const LocationSelectionScreen()),
+      // Full-screen customer pages (open above the bottom nav).
+      GoRoute(
+          path: Routes.categoryPattern,
+          builder: (_, s) =>
+              SearchScreen(initialCategory: s.pathParameters['name']!)),
+      GoRoute(
+          path: Routes.customerProductPattern,
+          builder: (_, s) =>
+              ProductDetailsScreen(productId: s.pathParameters['id']!)),
+      GoRoute(
+          path: Routes.customerShopPattern,
+          builder: (_, s) =>
+              ShopDetailsScreen(shopId: s.pathParameters['id']!)),
       // Seller area: bottom-nav shell with one branch per tab.
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => SellerShell(navigationShell: shell),
@@ -73,6 +122,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Full-screen seller pages (open above the bottom nav).
       GoRoute(
           path: Routes.editShop, builder: (_, __) => const EditShopScreen()),
+      // Delivery areas ('add' is declared before ':id/edit').
+      GoRoute(
+          path: Routes.deliveryAreas,
+          builder: (_, __) => const DeliveryAreasScreen()),
+      GoRoute(
+          path: Routes.deliveryAreaAdd,
+          builder: (_, __) => const DeliveryAreaFormScreen()),
+      GoRoute(
+          path: Routes.deliveryAreaEditPattern,
+          builder: (_, s) =>
+              DeliveryAreaFormScreen(areaId: s.pathParameters['id']!)),
       // 'add' is declared before ':id' so it is not read as a product id.
       GoRoute(
           path: Routes.productAdd,

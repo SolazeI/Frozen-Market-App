@@ -8,6 +8,7 @@ export 'frost_logo.dart';
 export 'frost_text_field.dart';
 export 'image_upload_field.dart';
 export 'location_picker.dart';
+export 'market_product_card.dart';
 export 'network_image_box.dart';
 export 'product_card.dart';
 export 'rating_widgets.dart';
