@@ -113,6 +113,7 @@ class _GalleryState extends State<_Gallery> {
                     await Future.delayed(const Duration(seconds: 1));
                     if (!mounted) return;
                     setState(() => _loading = false);
+                    if (!context.mounted) return;
                     AppSnackbar.success(context, 'Logged in');
                   },
                 ),

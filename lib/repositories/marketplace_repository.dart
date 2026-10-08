@@ -48,4 +48,17 @@ class MarketplaceRepository {
 
   Future<List<Product>> getShopProducts(String shopId) =>
       getProductsByShops([shopId]);
+
+  /// Products by id, including unlisted ones (so the cart can flag them).
+  Future<List<Product>> getProductsByIds(Iterable<String> ids) async {
+    final out = <Product>[];
+    for (final chunk in _chunks(ids)) {
+      final snap = await _db
+          .collection(Collections.products)
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      out.addAll(snap.docs.map((d) => Product.fromMap(d.data())));
+    }
+    return out;
+  }
 }

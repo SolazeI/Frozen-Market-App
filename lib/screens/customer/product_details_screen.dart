@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
+import '../../core/errors/error_mapper.dart';
+import '../../models/cart_view.dart';
 import '../../models/product.dart';
 import '../../models/psgc_location.dart';
 import '../../models/shop.dart';
+import '../../providers/cart_providers.dart';
 import '../../providers/location_providers.dart';
 import '../../providers/marketplace_providers.dart';
 import '../../providers/product_providers.dart';
@@ -27,13 +30,24 @@ class ProductDetailsScreen extends ConsumerStatefulWidget {
 class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
   int _qty = 1;
 
-  // Cart arrives in Phase 10; the buttons are already gated by the same
-  // delivery/stock rules that will apply then.
-  void _cartSoon() =>
-      AppSnackbar.info(context, 'Cart and checkout arrive in the next update.');
+  Future<void> _addToCart(Product p) async {
+    final ok =
+        await ref.read(cartControllerProvider.notifier).addToCart(p, _qty);
+    if (ok && mounted) AppSnackbar.success(context, 'Added to cart');
+  }
+
+  /// Buy now skips the cart and checks out this product only.
+  void _buyNow(Product p) => context.push(Routes.checkout,
+      extra: BuyNowItem(
+          productId: p.productId, shopId: p.shopId, quantity: _qty));
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<void>>(cartControllerProvider, (_, next) {
+      if (next.hasError && !next.isLoading) {
+        AppSnackbar.error(context, friendlyError(next.error!));
+      }
+    });
     final async = ref.watch(productProvider(widget.productId));
     final product = async.valueOrNull;
     final quote = product == null
@@ -66,7 +80,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: canOrder ? _cartSoon : null,
+                        onPressed: canOrder ? () => _addToCart(product) : null,
                         icon: const Icon(Icons.add_shopping_cart),
                         label: const Text('Add to cart'),
                       ),
@@ -74,7 +88,7 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: canOrder ? _cartSoon : null,
+                        onPressed: canOrder ? () => _buyNow(product) : null,
                         child: const Text('Buy now'),
                       ),
                     ),

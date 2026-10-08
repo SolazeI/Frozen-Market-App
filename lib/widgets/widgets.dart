@@ -10,6 +10,7 @@ export 'image_upload_field.dart';
 export 'location_picker.dart';
 export 'market_product_card.dart';
 export 'network_image_box.dart';
+export 'order_status_chip.dart';
 export 'product_card.dart';
 export 'rating_widgets.dart';
 export 'role_gate.dart';

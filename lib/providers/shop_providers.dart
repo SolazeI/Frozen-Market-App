@@ -3,11 +3,14 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/app_exception.dart';
+import '../models/order.dart';
+import '../models/order_status.dart';
 import '../models/psgc_location.dart';
 import '../models/seller_stats.dart';
 import '../models/shop.dart';
 import '../repositories/shop_repository.dart';
 import 'auth_providers.dart';
+import 'order_providers.dart';
 import 'product_providers.dart';
 import 'user_providers.dart';
 
@@ -27,10 +30,18 @@ final myShopProvider = StreamProvider<Shop?>((ref) {
 /// Phase 12 (orders) and reads 0 until then.
 final sellerStatsProvider = Provider<AsyncValue<SellerStats>>((ref) {
   final productCount = ref.watch(myProductsProvider).valueOrNull?.length ?? 0;
+  // Sales come from the seller's own delivered orders, so they cannot be
+  // faked by editing the shop document.
+  final orders = ref.watch(sellerOrdersProvider).valueOrNull ?? const <CustomerOrder>[];
+  final pendingOrders =
+      orders.where((o) => o.status == OrderStatus.pending).length;
+  final totalSales = orders
+      .where((o) => o.status == OrderStatus.delivered)
+      .fold<double>(0, (s, o) => s + o.total);
   return ref.watch(myShopProvider).whenData((shop) => SellerStats(
         totalProducts: productCount,
-        pendingOrders: 0,
-        totalSales: shop?.totalSales ?? 0,
+        pendingOrders: pendingOrders,
+        totalSales: totalSales,
         rating: shop?.rating ?? 0,
         totalReviews: shop?.totalReviews ?? 0,
       ));

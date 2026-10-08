@@ -16,6 +16,8 @@ class Routes {
   static const customerCart = '/customer/cart';
   static const customerOrders = '/customer/orders';
   static const customerProfile = '/customer/profile';
+  static const checkout = '/customer/checkout';
+  static const orderConfirmation = '/customer/order-confirmation';
   // Customer full-screen pages
   static const categoryPattern = '/customer/category/:name';
   static String category(String name) =>
@@ -29,6 +31,8 @@ class Routes {
   static const sellerHome = '/seller';
   static const sellerProducts = '/seller/products';
   static const sellerOrders = '/seller/orders';
+  static const sellerOrderPattern = '/seller/orders/:id';
+  static String sellerOrder(String id) => '/seller/orders/$id';
   static const sellerShop = '/seller/shop';
   static const editShop = '/seller/shop/edit';
 

@@ -94,12 +94,12 @@ class PsgcLocation {
       );
 
   @override
-  bool operator ==(Object o) =>
-      o is PsgcLocation &&
-      o.regionCode == regionCode &&
-      o.provinceCode == provinceCode &&
-      o.cityCode == cityCode &&
-      o.barangayCode == barangayCode;
+  bool operator ==(Object other) =>
+      other is PsgcLocation &&
+      other.regionCode == regionCode &&
+      other.provinceCode == provinceCode &&
+      other.cityCode == cityCode &&
+      other.barangayCode == barangayCode;
 
   @override
   int get hashCode =>

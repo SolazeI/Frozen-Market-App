@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/seller_stats.dart';
 import '../../models/shop.dart';
+import '../../models/order.dart';
+import '../../providers/order_providers.dart';
 import '../../providers/shop_providers.dart';
 import '../../routes/routes.dart';
 import '../../theme/app_colors.dart';
@@ -47,15 +49,7 @@ class SellerDashboardScreen extends ConsumerWidget {
               const SectionHeader(
                   title: 'Recent orders',
                   padding: EdgeInsets.fromLTRB(0, 24, 0, 12)),
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                    child: Text("You don't have any orders yet.",
-                        style: TextStyle(color: AppColors.textSecondary)),
-                  ),
-                ),
-              ),
+              const _RecentOrders(),
             ],
           );
         },
@@ -211,6 +205,49 @@ class _QuickActions extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Latest three orders on the dashboard.
+class _RecentOrders extends ConsumerWidget {
+  const _RecentOrders();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orders =
+        ref.watch(sellerOrdersProvider).valueOrNull ?? const <CustomerOrder>[];
+    if (orders.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(
+            child: Text("You don't have any orders yet.",
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final o in orders.take(3))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Card(
+              child: ListTile(
+                title: Text(o.orderNumber,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                    '${o.deliveryAddress.fullName} • ${Formatters.peso(o.total)}'),
+                trailing: OrderStatusChip(status: o.status),
+                onTap: () => context.push(Routes.sellerOrder(o.orderId)),
+              ),
+            ),
+          ),
+        TextButton(
+            onPressed: () => context.go(Routes.sellerOrders),
+            child: const Text('View all orders')),
       ],
     );
   }

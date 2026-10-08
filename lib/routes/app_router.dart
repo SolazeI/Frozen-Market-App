@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/cart_view.dart';
+import '../models/order.dart';
 import '../providers/auth_providers.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -10,10 +12,12 @@ import '../screens/auth/splash_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/customer/customer_home_screen.dart';
+import '../screens/customer/checkout_screen.dart';
 import '../screens/customer/customer_cart_screen.dart';
 import '../screens/customer/customer_orders_screen.dart';
 import '../screens/customer/customer_shell.dart';
 import '../screens/customer/location_selection_screen.dart';
+import '../screens/customer/order_confirmation_screen.dart';
 import '../screens/customer/product_details_screen.dart';
 import '../screens/customer/search_screen.dart';
 import '../screens/customer/shop_details_screen.dart';
@@ -23,6 +27,7 @@ import '../screens/seller/seller_dashboard_screen.dart';
 import '../screens/seller/edit_shop_screen.dart';
 import '../screens/seller/product_form_screen.dart';
 import '../screens/seller/seller_product_detail_screen.dart';
+import '../screens/seller/seller_order_details_screen.dart';
 import '../screens/seller/seller_orders_screen.dart';
 import '../screens/seller/seller_products_screen.dart';
 import '../screens/seller/seller_shell.dart';
@@ -93,6 +98,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: Routes.customerShopPattern,
           builder: (_, s) =>
               ShopDetailsScreen(shopId: s.pathParameters['id']!)),
+      GoRoute(
+          path: Routes.checkout,
+          builder: (_, s) => CheckoutScreen(
+              buyNow: s.extra is BuyNowItem ? s.extra as BuyNowItem : null)),
+      GoRoute(
+          path: Routes.orderConfirmation,
+          builder: (_, s) => OrderConfirmationScreen(
+              orders: s.extra is List<CustomerOrder>
+                  ? s.extra as List<CustomerOrder>
+                  : const <CustomerOrder>[])),
       // Seller area: bottom-nav shell with one branch per tab.
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => SellerShell(navigationShell: shell),
@@ -133,6 +148,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: Routes.deliveryAreaEditPattern,
           builder: (_, s) =>
               DeliveryAreaFormScreen(areaId: s.pathParameters['id']!)),
+      GoRoute(
+          path: Routes.sellerOrderPattern,
+          builder: (_, s) =>
+              SellerOrderDetailsScreen(orderId: s.pathParameters['id']!)),
       // 'add' is declared before ':id' so it is not read as a product id.
       GoRoute(
           path: Routes.productAdd,
